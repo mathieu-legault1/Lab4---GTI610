@@ -11,10 +11,7 @@ import java.net.UnknownHostException;
 	 * L'envoi verifie que notre adresse est valide avant d'effectuer le traitement
 	 * @author lighta
 	 */
-	public class UDPSender  {
-
-	private final static int BUF_SIZE = 1024;
-	
+	public class UDPSender  {	
 	private String dest_ip = null; //ip de reception
 	private int dest_port = 53;  // port de reception
 	private DatagramSocket SendSocket = null; //socket d'envoi

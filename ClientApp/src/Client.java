@@ -14,21 +14,21 @@ public class Client {
 		Scanner scanner = new Scanner(System.in);
 		while (true) {
 			System.out.println("What's the massage?");
-			String message = scanner.next();
+			String message = scanner.nextLine();
 			if(message.equals("quit")) break;
 			
 			Socket socket = null;
 			BufferedReader reader = null;
 			try {
-				socket = new Socket("localhost", 25232);
+				socket = new Socket("127.0.0.1", 25570);
 				PrintWriter printWriter = new PrintWriter(socket.getOutputStream(), true);
-				printWriter.write(message);
+				printWriter.println(message);
 				
 				reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				System.out.println(reader.readLine());
 				
-				/*socket.close();
-				reader.close();*/
+				socket.close();
+				reader.close();
 			} catch (IOException exception) {
 				System.out.println("Couldn't open the socket: " + exception.toString());
 			}

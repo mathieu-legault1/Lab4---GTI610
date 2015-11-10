@@ -1,4 +1,6 @@
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
@@ -39,6 +41,19 @@ public class AnswerRecorder {
 			return; 	
 		}
 		try {
+			StringBuilder file = new StringBuilder();
+			String sCurrentLine;
+			BufferedReader bufferedReader = new BufferedReader(new FileReader(filename));
+
+			while ((sCurrentLine = bufferedReader.readLine()) != null) {
+				file.append(sCurrentLine);
+			}
+			bufferedReader.close();
+			
+			if(file.toString().contains(hostname + " " + adresseIP)) return; // already contains the line...
+
+			
+			
 			FileWriter writerFichierSource = new FileWriter(filename,true);		
 			writerFichierSource.write(hostname + " " + adresseIP);
 			writerFichierSource.write("\r\n");

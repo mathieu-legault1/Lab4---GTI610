@@ -1,6 +1,3 @@
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.nio.ByteBuffer;
@@ -66,6 +63,7 @@ public class UDPReceiver extends Thread {
 	private String DNSFile = null;
 	private boolean RedirectionSeulement = false;
 	
+	
 	private class ClientInfo { //quick container
 		public String client_ip = null;
 		public int client_port = 0;
@@ -100,10 +98,6 @@ public class UDPReceiver extends Thread {
 		return adrIP;
 	}
 
-	private void setAdrIP(String ip) {
-		adrIP = ip;
-	}
-
 	public String getSERVER_DNS() {
 		return SERVER_DNS;
 	}
@@ -121,31 +115,19 @@ public class UDPReceiver extends Thread {
 	public void run() {
 		try {
 			DatagramSocket serveur = new DatagramSocket(this.port); // *Creation d'un socket UDP
-		
-			int firstTry = 0;
+			
 			// *Boucle infinie de reception
 			while (!this.stop) {
 				
-				byte[] buff = new byte[0xFF];
+				byte[] buff = new byte[1000];
 				DatagramPacket paquetRecu = new DatagramPacket(buff,buff.length);
 				System.out.println("Serveur DNS  "+serveur.getLocalAddress()+"  en attente sur le port: "+ serveur.getLocalPort());
 
 				// *Reception d'un paquet UDP via le socket
 				serveur.receive(paquetRecu);
 				System.out.println(buff.toString());
-				if(firstTry == 0) {
-					firstTry++;
-					continue;
-				}
 				System.out.println("paquet recu du  "+paquetRecu.getAddress()+"  du port: "+ paquetRecu.getPort());
-				
 
-				// *Creation d'un DataInputStream ou ByteArrayInputStream pour
-				// manipuler les bytes du paquet
-
-				ByteArrayInputStream tabInputStream = new ByteArrayInputStream (paquetRecu.getData());
-				// *Lecture du Query Domain name, a partir du 13 byte
-				// *Sauvegarde du Query Domain name
 				StringBuilder domainName = new StringBuilder();
 				
 				int currentLocation = 12;
@@ -161,60 +143,80 @@ public class UDPReceiver extends Thread {
 				
 				if(ByteBuffer.allocate(8).putInt(buff[3]).array()[0] == 0) { //request
 					
+					int requestType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+1]) + Integer.toBinaryString(buff[2+currentLocation]), 2);
+					int classType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+3]) + Integer.toBinaryString(buff[4+currentLocation]), 2);
 					
-					// *Sauvegarde de l'adresse, du port et de l'identifiant de la requete
-					// buff[0] et buff[1] == identifiant
-					// paquetRecu.getAddress()
-					// paquetRecu.getPort()
-					System.out.println(domainName.toString());
-					
-					
-					
-					// nice variable name ... 
-					if(this.RedirectionSeulement) { // *Si le mode est redirection seulement
-						// *Rediriger le paquet vers le serveur DNS
-						UDPSender sender = new UDPSender(SERVER_DNS, this.port, serveur);
-						sender.SendPacketNow(paquetRecu);
-					} else {
-						// *Rechercher l'adresse IP associe au Query Domain name
-						// dans le fichier de correspondance de ce serveur					
-
-						// *Si la correspondance n'est pas trouvee
-							// *Rediriger le paquet vers le serveur DNS
-						// *Sinon	
-							// *Creer le paquet de reponse a l'aide du UDPAnswerPaquetCreator
-							// *Placer ce paquet dans le socket
-							// *Envoyer le paquet
+					if(requestType == 1 && classType == 1) {
+						ClientInfo clientInfo = new ClientInfo();
+						clientInfo.client_ip = paquetRecu.getAddress().getHostAddress();
+						clientInfo.client_port = paquetRecu.getPort();
+						Clients.put(Integer.parseInt(Integer.toBinaryString(buff[0]) + Integer.toBinaryString(buff[1]), 2), clientInfo);
+						
+						if(this.RedirectionSeulement) {
+							UDPSender sender = new UDPSender(SERVER_DNS, this.port, serveur);
+							sender.SendPacketNow(paquetRecu);
+						} else {
+							QueryFinder queryFinder = new QueryFinder(DNSFile);
+							List<String> ipAdresses = queryFinder.StartResearch(domainName.toString());
+							if(ipAdresses.isEmpty()) {
+								UDPSender sender = new UDPSender(SERVER_DNS, this.port, serveur);
+								sender.SendPacketNow(paquetRecu);
+							} else {
+								byte[] data = UDPAnswerPacketCreator.getInstance().CreateAnswerPacket(buff, ipAdresses);
+								DatagramPacket datagramPacket = new DatagramPacket(data, data.length);
+								serveur.send(datagramPacket);
+							}
+						}
 					}
 				} else {
+					
+					if(Integer.toBinaryString(buff[3]).endsWith("0000")) {
+						// no error of type (no such name)
+						List<String> ipAddresses = new ArrayList<String>();
+						int requestType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+1]) + Integer.toBinaryString(buff[2+currentLocation]), 2);
+						int classType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+3]) + Integer.toBinaryString(buff[4+currentLocation]), 2);
+						
+						if(requestType == 1 && classType == 1) {
 
-					System.out.println("hello");
-					// *Passe par dessus Type et Class
-					
-					// *Passe par dessus les premiers champs du ressource record
-					// pour arriver au ressource data qui contient l'adresse IP associe
-					//  au hostname (dans le fond saut de 16 bytes)
-					
-					// *Capture de ou des adresse(s) IP (ANCOUNT est le nombre
-					// de r�ponses retourn�es)			
-				
-					// *Ajouter la ou les correspondance(s) dans le fichier DNS
-					// si elles ne y sont pas deja
-					
-					// *Faire parvenir le paquet reponse au demandeur original,
-					// ayant emis une requete avec cet identifiant				
-					// *Placer ce paquet dans le socket
-					// *Envoyer le paquet
+							
+							int numberOfResponses = Integer.parseInt(Integer.toBinaryString(buff[6]) + Integer.toBinaryString(buff[7]), 2);
+							
+							for(int i = 0; i < numberOfResponses; i++) {
+								 requestType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+7+(i*16)]) + Integer.toBinaryString(buff[8+currentLocation+(i*16)]), 2);
+								 classType = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+9+(i*16)]) + Integer.toBinaryString(buff[10+currentLocation+(i*16)]), 2);
+								 
+								 if(requestType != 1 || classType != 1) {
+									 throw new Exception("Problem (shouldn't happen)");
+								 }
+								 
+								 int dataLength = Integer.parseInt(Integer.toBinaryString(buff[currentLocation+15+(i*16)]) + Integer.toBinaryString(buff[16+currentLocation+(i*16)]), 2);
+								 if(dataLength != 4) {
+									 throw new Exception("Problem (shouldn't happen)");
+								 }
+								 
+								 StringBuilder ipAddress = new StringBuilder();
+								 
+								 for(int j = 0; j < 4; j++) {
+									 int value = (buff[currentLocation+17+j+(i*16)] >= 0) ? buff[currentLocation+17+j+(i*16)] : buff[currentLocation+17+j+(i*16)] + 256;
+									 ipAddress.append(value);
+									 ipAddress.append(".");
+								 }
+								 ipAddresses.add(ipAddress.toString().substring(0, ipAddress.toString().length()-1));
+							}
+							
+							AnswerRecorder answerRecorder = new AnswerRecorder(DNSFile);
+							for(String ipAdresse : ipAddresses) {
+								answerRecorder.StartRecord(domainName.toString(), ipAdresse);
+							}
+							ClientInfo clientInfo = Clients.get(Integer.parseInt(Integer.toBinaryString(buff[0]) + Integer.toBinaryString(buff[1]), 2));
+
+							UDPSender sender = new UDPSender(clientInfo.client_ip, clientInfo.client_port, serveur);
+							sender.SendPacketNow(new DatagramPacket(buff, buff.length));
+						}
+					}
 				}
-				
-				
-				
-					
-
-					
-				//}
 			}
-			//serveur.close(); //closing server
+			serveur.close(); //closing server
 		} catch (Exception e) {
 			System.err.println("Probl�me � l'ex�cution :");
 			e.printStackTrace(System.err);

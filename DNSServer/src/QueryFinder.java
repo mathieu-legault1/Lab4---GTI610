@@ -34,7 +34,6 @@ import java.util.Scanner;
 	private Scanner scanneurFichierSource = null;
 	private String uneligne = null;
 	private String[] hostnameFromFile = null;
-	private String valueToReturn = null;
 	
 	/**
 	 * Constructeur

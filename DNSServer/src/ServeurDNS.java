@@ -13,7 +13,7 @@ public class ServeurDNS {
 	public static void main(String[] args) {
 		
 		// might want to change that line later on :)
-		args = new String[]{"8.8.8.8", "DNSFILE.TXT", "true"};
+		args = new String[]{"showtable", "DNSFILE.TXT"};
 		System.out.println("--------------------------------------");
 		System.out.println("Ecole de Technologie Superieures (ETS)");
 		System.out.println("GTI610 - Reseau de telecommunication");

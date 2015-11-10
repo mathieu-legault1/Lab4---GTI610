@@ -41,6 +41,7 @@ public class Server {
 				BufferedReader reader = new BufferedReader(new InputStreamReader(m_socket.getInputStream()));
 				PrintWriter printWriter = new PrintWriter(m_socket.getOutputStream(), true);
 				message = reader.readLine();
+				
 				System.out.println("message: " + message);
 				System.out.println("Client IP: " + m_socket.getRemoteSocketAddress().toString());
 				System.out.println("Port number: " + m_socket.getPort());
